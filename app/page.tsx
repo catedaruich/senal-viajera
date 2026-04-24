@@ -7,14 +7,8 @@ import { MapaReal } from "@/components/mapa-real"
 import { GraficoCobertura } from "@/components/grafico-cobertura"
 import { AlertaZona } from "@/components/alerta-zona"
 import { Consejos } from "@/components/consejos"
+import type { DatoRuta } from "@/lib/rutas/catalogo"
 
-interface DatoRuta {
-  km: number
-  senal: number
-  zona: string
-  lat?: number
-  lng?: number
-}
 
 export default function SenalViajero() {
   const [nivelSenal, setNivelSenal] = useState(4)

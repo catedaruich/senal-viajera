@@ -1,18 +1,11 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { MapPin, Navigation, Search, Wifi, WifiOff, Loader2 } from "lucide-react"
+import { useState, useMemo } from "react"
+import { MapPin, Navigation, Search, Wifi, WifiOff, Loader2, AlertTriangle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import dynamic from "next/dynamic"
-
-interface DatoRuta {
-  km: number
-  senal: number
-  zona: string
-  lat?: number
-  lng?: number
-}
+import type { DatoRuta } from "@/lib/rutas/catalogo"
 
 interface Props {
   distancia: number
@@ -22,96 +15,19 @@ interface Props {
   rutaCalculada: boolean
 }
 
-// Rutas predefinidas con coordenadas reales de Chile
-const rutasPredefinidas: Record<string, { coords: [number, number][], puntos: DatoRuta[] }> = {
-  "santiago-valparaiso": {
-    coords: [
-      [-33.4489, -70.6693], // Santiago
-      [-33.4372, -70.7281],
-      [-33.4186, -70.8012],
-      [-33.3892, -70.8845],
-      [-33.3567, -70.9623],
-      [-33.2984, -71.0512],
-      [-33.2456, -71.1289],
-      [-33.1823, -71.2134],
-      [-33.1045, -71.3012],
-      [-33.0472, -71.4523],
-      [-33.0472, -71.6127], // Valparaiso
-    ],
-    puntos: [
-      { km: 0, senal: 5, zona: "Santiago - Centro", lat: -33.4489, lng: -70.6693 },
-      { km: 12, senal: 5, zona: "Pudahuel", lat: -33.4372, lng: -70.7281 },
-      { km: 24, senal: 4, zona: "Ruta 68 - Autopista", lat: -33.4186, lng: -70.8012 },
-      { km: 36, senal: 4, zona: "Curacavi cercano", lat: -33.3892, lng: -70.8845 },
-      { km: 48, senal: 3, zona: "Zona rural - Curacavi", lat: -33.3567, lng: -70.9623 },
-      { km: 60, senal: 2, zona: "Cuesta Zapata - Cobertura limitada", lat: -33.2984, lng: -71.0512 },
-      { km: 72, senal: 1, zona: "Tunel Lo Prado - Sin senal", lat: -33.2456, lng: -71.1289 },
-      { km: 84, senal: 2, zona: "Salida tunel - Recuperando", lat: -33.1823, lng: -71.2134 },
-      { km: 96, senal: 3, zona: "Casablanca cercano", lat: -33.1045, lng: -71.3012 },
-      { km: 108, senal: 4, zona: "Llegando a Valparaiso", lat: -33.0472, lng: -71.4523 },
-      { km: 120, senal: 5, zona: "Valparaiso - Centro", lat: -33.0472, lng: -71.6127 },
-    ]
-  },
-  "santiago-rancagua": {
-    coords: [
-      [-33.4489, -70.6693], // Santiago
-      [-33.5012, -70.6234],
-      [-33.5567, -70.5823],
-      [-33.6234, -70.5412],
-      [-33.6892, -70.4923],
-      [-33.7456, -70.4534],
-      [-33.8123, -70.4012],
-      [-33.8678, -70.3534],
-      [-33.9234, -70.3123],
-      [-33.9789, -70.2712],
-      [-34.1708, -70.7444], // Rancagua
-    ],
-    puntos: [
-      { km: 0, senal: 5, zona: "Santiago - Centro", lat: -33.4489, lng: -70.6693 },
-      { km: 8, senal: 5, zona: "San Bernardo", lat: -33.5012, lng: -70.6234 },
-      { km: 16, senal: 4, zona: "Buin", lat: -33.5567, lng: -70.5823 },
-      { km: 24, senal: 4, zona: "Paine", lat: -33.6234, lng: -70.5412 },
-      { km: 32, senal: 3, zona: "Hospital", lat: -33.6892, lng: -70.4923 },
-      { km: 40, senal: 3, zona: "Zona agricola", lat: -33.7456, lng: -70.4534 },
-      { km: 48, senal: 2, zona: "Requinoa cercano", lat: -33.8123, lng: -70.4012 },
-      { km: 56, senal: 3, zona: "Graneros", lat: -33.8678, lng: -70.3534 },
-      { km: 64, senal: 4, zona: "Acercandose Rancagua", lat: -33.9234, lng: -70.3123 },
-      { km: 72, senal: 5, zona: "Entrada Rancagua", lat: -33.9789, lng: -70.2712 },
-      { km: 85, senal: 5, zona: "Rancagua - Centro", lat: -34.1708, lng: -70.7444 },
-    ]
-  },
-  "default": {
-    coords: [
-      [-33.4489, -70.6693], // Santiago centro
-      [-33.4312, -70.6512],
-      [-33.4134, -70.6334],
-      [-33.3956, -70.6156],
-      [-33.3778, -70.5978],
-      [-33.3600, -70.5800],
-      [-33.3422, -70.5622],
-      [-33.3244, -70.5444],
-      [-33.3066, -70.5266],
-      [-33.2888, -70.5088],
-      [-33.2710, -70.4910],
-    ],
-    puntos: [
-      { km: 0, senal: 5, zona: "Punto de partida", lat: -33.4489, lng: -70.6693 },
-      { km: 5, senal: 5, zona: "Salida urbana", lat: -33.4312, lng: -70.6512 },
-      { km: 10, senal: 4, zona: "Carretera", lat: -33.4134, lng: -70.6334 },
-      { km: 15, senal: 3, zona: "Zona semi-rural", lat: -33.3956, lng: -70.6156 },
-      { km: 20, senal: 2, zona: "Zona rural", lat: -33.3778, lng: -70.5978 },
-      { km: 25, senal: 1, zona: "Sin cobertura", lat: -33.3600, lng: -70.5800 },
-      { km: 30, senal: 1, zona: "Zona critica", lat: -33.3422, lng: -70.5622 },
-      { km: 35, senal: 2, zona: "Recuperando senal", lat: -33.3244, lng: -70.5444 },
-      { km: 40, senal: 3, zona: "Cerca de poblacion", lat: -33.3066, lng: -70.5266 },
-      { km: 45, senal: 4, zona: "Acercandose destino", lat: -33.2888, lng: -70.5088 },
-      { km: 50, senal: 5, zona: "Destino", lat: -33.2710, lng: -70.4910 },
-    ]
+interface CalculoRutaResponse {
+  ruta: {
+    id: string
+    nombre: string
+    origen: string
+    destino: string
+    coords: [number, number][]
+    puntos: DatoRuta[]
   }
 }
 
 // Importar el mapa dinamicamente para evitar SSR issues
-const MapaLeaflet = dynamic(() => import("./mapa-leaflet"), { 
+const MapaLeaflet = dynamic(() => import("./mapa-leaflet"), {
   ssr: false,
   loading: () => (
     <div className="w-full h-full flex items-center justify-center bg-slate-100">
@@ -120,13 +36,15 @@ const MapaLeaflet = dynamic(() => import("./mapa-leaflet"), {
         <p className="text-slate-600">Cargando mapa...</p>
       </div>
     </div>
-  )
+  ),
 })
 
 export function MapaReal({ distancia, datosRuta, zonaActual, onCalcularRuta, rutaCalculada }: Props) {
   const [origen, setOrigen] = useState("")
   const [destino, setDestino] = useState("")
   const [rutaCoords, setRutaCoords] = useState<[number, number][]>([])
+  const [calculando, setCalculando] = useState(false)
+  const [errorCalculo, setErrorCalculo] = useState<string | null>(null)
 
   const getColorClaseSenal = (senal: number) => {
     if (senal >= 4) return "bg-emerald-500"
@@ -142,44 +60,48 @@ export function MapaReal({ distancia, datosRuta, zonaActual, onCalcularRuta, rut
     return "bg-red-50"
   }
 
-  const detectarRuta = (origen: string, destino: string): string => {
-    const origenLower = origen.toLowerCase()
-    const destinoLower = destino.toLowerCase()
-    
-    if ((origenLower.includes("santiago") && destinoLower.includes("valparaiso")) ||
-        (origenLower.includes("valparaiso") && destinoLower.includes("santiago"))) {
-      return "santiago-valparaiso"
-    }
-    if ((origenLower.includes("santiago") && destinoLower.includes("rancagua")) ||
-        (origenLower.includes("rancagua") && destinoLower.includes("santiago"))) {
-      return "santiago-rancagua"
-    }
-    return "default"
-  }
+  const handleCalcular = async () => {
+    if (!origen || !destino) return
 
-  const handleCalcular = () => {
-    if (origen && destino) {
-      const rutaKey = detectarRuta(origen, destino)
-      const ruta = rutasPredefinidas[rutaKey]
-      setRutaCoords(ruta.coords)
-      onCalcularRuta(origen, destino, ruta.puntos)
+    try {
+      setCalculando(true)
+      setErrorCalculo(null)
+
+      const response = await fetch("/api/rutas/calcular", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ origen, destino }),
+      })
+
+      if (!response.ok) {
+        throw new Error("No se pudo calcular la ruta. Intenta nuevamente.")
+      }
+
+      const data = (await response.json()) as CalculoRutaResponse
+      setRutaCoords(data.ruta.coords)
+      onCalcularRuta(origen, destino, data.ruta.puntos)
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : "Error inesperado"
+      setErrorCalculo(mensaje)
+    } finally {
+      setCalculando(false)
     }
   }
 
   // Calcular posicion actual basada en distancia
   const posicionActual = useMemo(() => {
     if (!rutaCalculada || rutaCoords.length === 0) return null
-    
+
     const totalKm = datosRuta[datosRuta.length - 1]?.km || 50
     const progreso = Math.min(distancia / totalKm, 1)
     const index = Math.floor(progreso * (rutaCoords.length - 1))
     const nextIndex = Math.min(index + 1, rutaCoords.length - 1)
-    
-    const fraccion = (progreso * (rutaCoords.length - 1)) - index
-    
+
+    const fraccion = progreso * (rutaCoords.length - 1) - index
+
     const lat = rutaCoords[index][0] + (rutaCoords[nextIndex][0] - rutaCoords[index][0]) * fraccion
     const lng = rutaCoords[index][1] + (rutaCoords[nextIndex][1] - rutaCoords[index][1]) * fraccion
-    
+
     return [lat, lng] as [number, number]
   }, [distancia, rutaCalculada, rutaCoords, datosRuta])
 
@@ -210,23 +132,27 @@ export function MapaReal({ distancia, datosRuta, zonaActual, onCalcularRuta, rut
               className="pl-10"
             />
           </div>
-          <Button 
-            onClick={handleCalcular} 
+          <Button
+            onClick={handleCalcular}
             className="w-full bg-sky-500 hover:bg-sky-600"
-            disabled={!origen || !destino}
+            disabled={!origen || !destino || calculando}
           >
-            <Search className="w-4 h-4 mr-2" />
-            Calcular ruta
+            {calculando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
+            {calculando ? "Calculando..." : "Calcular ruta"}
           </Button>
-          <p className="text-xs text-muted-foreground text-center">
-            Prueba: Santiago → Valparaiso o Santiago → Rancagua
-          </p>
+          <p className="text-xs text-muted-foreground text-center">Prueba: Santiago → Valparaiso o Santiago → Rancagua</p>
+          {errorCalculo && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2 flex items-center gap-2">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              {errorCalculo}
+            </p>
+          )}
         </div>
       </div>
 
       {/* Mapa real con Leaflet */}
       <div className="flex-1 relative min-h-[350px]">
-        <MapaLeaflet 
+        <MapaLeaflet
           rutaCoords={rutaCoords}
           datosRuta={datosRuta}
           posicionActual={posicionActual}
@@ -241,17 +167,11 @@ export function MapaReal({ distancia, datosRuta, zonaActual, onCalcularRuta, rut
           <div className={`rounded-xl p-3 mb-3 ${getColorFondo(zonaActual.senal)}`}>
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-full ${getColorClaseSenal(zonaActual.senal)} flex items-center justify-center`}>
-                {zonaActual.senal >= 2 ? (
-                  <Wifi className="w-5 h-5 text-white" />
-                ) : (
-                  <WifiOff className="w-5 h-5 text-white" />
-                )}
+                {zonaActual.senal >= 2 ? <Wifi className="w-5 h-5 text-white" /> : <WifiOff className="w-5 h-5 text-white" />}
               </div>
               <div>
                 <p className="font-medium text-slate-800">{zonaActual.zona}</p>
-                <p className="text-sm text-slate-600">
-                  Km {Math.round(distancia)} - Senal {zonaActual.senal}/5
-                </p>
+                <p className="text-sm text-slate-600">Km {Math.round(distancia)} - Senal {zonaActual.senal}/5</p>
               </div>
             </div>
           </div>
