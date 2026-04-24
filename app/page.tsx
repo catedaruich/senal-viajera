@@ -3,10 +3,18 @@
 import { useState, useEffect } from "react"
 import { EncabezadoSenal } from "@/components/encabezado-senal"
 import { TarjetaSenal } from "@/components/tarjeta-senal"
-import { PlanificadorRuta } from "@/components/planificador-ruta"
+import { MapaReal } from "@/components/mapa-real"
 import { GraficoCobertura } from "@/components/grafico-cobertura"
 import { AlertaZona } from "@/components/alerta-zona"
 import { Consejos } from "@/components/consejos"
+
+interface DatoRuta {
+  km: number
+  senal: number
+  zona: string
+  lat?: number
+  lng?: number
+}
 
 export default function SenalViajero() {
   const [nivelSenal, setNivelSenal] = useState(4)
@@ -19,8 +27,7 @@ export default function SenalViajero() {
   const [rutaCalculada, setRutaCalculada] = useState(false)
   const [origen, setOrigen] = useState("")
   const [destino, setDestino] = useState("")
-
-  const datosRuta = [
+  const [datosRuta, setDatosRuta] = useState<DatoRuta[]>([
     { km: 0, senal: 5, zona: "Ciudad - Excelente cobertura" },
     { km: 5, senal: 5, zona: "Salida urbana" },
     { km: 10, senal: 4, zona: "Carretera principal" },
@@ -32,7 +39,9 @@ export default function SenalViajero() {
     { km: 40, senal: 3, zona: "Pueblo cercano" },
     { km: 45, senal: 4, zona: "Acercandose a poblacion" },
     { km: 50, senal: 5, zona: "Destino - Buena cobertura" },
-  ]
+  ])
+
+  const totalKm = datosRuta[datosRuta.length - 1]?.km || 50
 
   const zonaActual = datosRuta.reduce((prev, curr) => 
     curr.km <= distancia ? curr : prev
@@ -44,9 +53,9 @@ export default function SenalViajero() {
     const intervalo = setInterval(() => {
       setDistancia(prev => {
         const nuevaDist = prev + 1
-        if (nuevaDist >= 50) {
+        if (nuevaDist >= totalKm) {
           setSimulando(false)
-          return 50
+          return totalKm
         }
         
         const zonaActual = datosRuta.reduce((prev, curr) => 
@@ -68,11 +77,12 @@ export default function SenalViajero() {
     }, 800)
     
     return () => clearInterval(intervalo)
-  }, [simulando])
+  }, [simulando, totalKm, datosRuta])
 
-  const handleCalcularRuta = (nuevoOrigen: string, nuevoDestino: string) => {
+  const handleCalcularRuta = (nuevoOrigen: string, nuevoDestino: string, nuevosPuntos: DatoRuta[]) => {
     setOrigen(nuevoOrigen)
     setDestino(nuevoDestino)
+    setDatosRuta(nuevosPuntos)
     setRutaCalculada(true)
     reiniciar()
   }
@@ -129,7 +139,7 @@ export default function SenalViajero() {
 
         {/* Mapa y grafico */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <PlanificadorRuta 
+          <MapaReal 
             distancia={distancia}
             datosRuta={datosRuta}
             zonaActual={zonaActual}
@@ -182,12 +192,12 @@ export default function SenalViajero() {
             <div className="flex justify-between text-sm text-muted-foreground mb-2">
               <span>Inicio</span>
               <span>{Math.round(distancia)} km recorridos</span>
-              <span>Destino (50 km)</span>
+              <span>Destino ({totalKm} km)</span>
             </div>
             <div className="h-3 bg-muted rounded-full overflow-hidden">
               <div 
                 className="h-full bg-gradient-to-r from-emerald-500 to-sky-500 transition-all duration-300"
-                style={{ width: `${(distancia / 50) * 100}%` }}
+                style={{ width: `${(distancia / totalKm) * 100}%` }}
               />
             </div>
           </div>
